@@ -3,7 +3,7 @@ import numpy as np
 
 class TestConversions:
 
-    def steup(self):
+    def setup(self):
         self.scorelist = [{'milk':1.4,'cheese':2.6,'eggs':1.2,'bread':3.0},
                           {'milk':2.0,'cheese':3.2,'eggs':2.7,'bread':2.9},
                           {'milk':2.7,'cheese':3.0,'eggs':2.5,'bread':3.5}]
@@ -15,4 +15,13 @@ class TestConversions:
         assert r1['cheese'] == 2,'Item \'cheese\' has the wrong rank!'
         assert r1['eggs'] == 4,'Item \'eggs\' has the wrong rank!'
         assert r1['bread'] == 1,'Item \'bread\' has the wrong rank!'
-        
+        r2 = RA.convert_to_ranks(self.scorelist[1])
+        assert r2['milk'] == 4,'Item \'milk\' has the wrong rank!'
+        assert r2['cheese'] == 1,'Item \'cheese\' has the wrong rank!'
+        assert r2['eggs'] == 3,'Item \'eggs\' has the wrong rank!'
+        assert r2['bread'] == 2,'Item \'bread\' has the wrong rank!'
+        r3 = RA.convert_to_ranks(self.scorelist[2])
+        assert r3['milk'] == 3,'Item \'milk\' has the wrong rank!'
+        assert r3['cheese'] == 2,'Item \'cheese\' has the wrong rank!'
+        assert r3['eggs'] == 4,'Item \'eggs\' has the wrong rank!'
+        assert r3['bread'] == 1,'Item \'bread\' has the wrong rank!'
