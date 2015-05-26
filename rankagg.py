@@ -16,6 +16,8 @@ All rights reserved.
 """
 
 from kbutil.listutil import sort_by_value
+from linear_assignment import linear_assignment
+from numpy import zeros,abs
 
 class RankAggregator(object):
     """
@@ -46,6 +48,7 @@ class RankAggregator(object):
         Both forward and reverse dictionaries are created and stored.
         """
         self.itemToIndex = {}
+        self.indexToItem = {}
         indexToItem = {}
         next = 0
         for i in items:
@@ -62,3 +65,117 @@ class FullListRankAggregator(RankAggregator):
     """
     def __init__(self):
         super(RankAggregator,self).__init__()
+        # used for method dispatch
+        self.mDispatch = {'borda':self.borda_aggregation,'spearman':self.footrule_aggregation}
+
+
+    def aggregate_ranks(self,experts,areScores=True,method='borda'):
+        """
+        Combines the ranks in the list experts to obtain a single
+        set of aggregate ranks.  Can operate on either scores
+        or ranks; scores are assumed to always mean higher=better.
+
+        INPUT:
+            experts : list of dictionaries, required
+                each element of experts should be a dictionary of item:score
+                or item:rank pairs
+
+            areScores : bool, optional
+                set to True if the experts provided scores, False if they 
+                provide ranks
+
+            method : string, optional
+                which method to use to perform the rank aggregation.
+                options include:
+
+                    'borda': aggregate by computation of borda scores
+
+                    'spearman' : use spearman footrule distance and
+                                 bipartite graph matching
+        """
+        aggRanks = {}
+        # if the input data is scores, we need to convert
+        if areScores:
+            ranklist = [self.convert_to_ranks(e) for e in experts]
+        else:
+            ranklist = experts
+        # now dispatch on the string method
+        if self.mDispatch.has_key(method):
+            aggRanks = self.mDispatch[method](ranklist)
+        else:
+            print 'ERROR: method \'%\' invalid.'
+        return aggRanks
+
+
+    def borda_aggregation(self,ranklist):
+        """
+        Computes aggregate rank by Borda score.  For each item and list of ranks,
+        compute:
+                
+                B_i(c) = # of candidates ranks BELOW c in ranks_i
+        
+        Then form:
+
+                B(c) = sum(B_i(c))
+        and sort in order of decreasing Borda score.
+
+        The aggregate ranks are returned as a dictionary, as are in input ranks.
+        """
+        # lists are full, so make an empty dictionary with the item keys
+        aggRanks = {}.fromkeys(ranklist[0])
+        for item in aggRanks:
+            aggRanks[item] = 0
+        # now increment the Borda scores one list at a time
+        maxRank = len(aggRanks)
+        for r in ranklist:
+            for item in r:
+                aggRanks[item] += maxRank - r[item]
+        # now convert the Borda scores to ranks
+        return self.convert_to_ranks(aggRanks)
+
+
+
+    def footrule_aggregation(self,ranklist):
+        """
+        Computes aggregate rank by Spearman footrule and bipartite graph 
+        matching, from a list of ranks.  For each candiate (thing to be 
+        ranked) and each position (rank) we compute a matrix
+
+            W(c,p) = (2/|S|^2)*sum(|tau_i(c) - p|)
+
+        where the sum runs over all the experts doing the ranking.  After 
+        that, Munkres' algorithm is used for the linear assignment/bipartite
+        graph matching problem.
+        """
+        # lists are full so make an empty dictionary with the item keys
+        items = ranklist[0].keys()
+        # map these to matrix entries
+        self.item_mapping(items)
+        scaling = 2.0/len(ranklist[0])**2
+        # thes are the positions p (each item will get a rank()
+        p = range(1,len(items)+1)
+        # compute the matrix
+        W = zeros((len(items),len(items)))
+        for r in ranklist:
+            for item in items:
+                taui = r[item]
+                for j in xrange(0,len(p)):
+                    delta = abs(taui - p[j])
+                    # matrix indices
+                    W[self.itemToIndex[item],j] += delta
+        W = scaling*W
+        # solve the assignment problem
+        path = linear_assignment(W)
+        # construct the aggregate ranks
+        aggRanks = {}
+        for pair in path:
+            aggRanks[self.indexToItem[pair[0]]] = p[pair[1]]
+        return aggRanks
+
+                
+
+
+        
+
+        
+
