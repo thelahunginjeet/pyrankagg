@@ -1,0 +1,31 @@
+Author: Kevin S. Brown (kevin.s.brown@uconn.edu, github.com/thelahunginjeet)
+
+A pure python package for rank aggregation/voting. Currenly, only full lists (in which
+each expert ranks all candidates) is supported, but I plan to extend this to partial
+list aggregation.  Rank aggregation can be performed either or scores (which are first
+converted to ranks) or ranks.
+
+This package depends on code that sorts a dictionary by value.  This is provided by
+kbutil.listutil.sort_by_value.  So you either need to install my kbutil package (also
+on my github site) or replace that function with your own to sort a dict by value.
+
+There is testing code in the tests/ directory.  To run the tests, just use
+
+	>python setup.py test
+
+See the documentation in the functions for detailed usage and function arguments.  The
+ranking functions accept lists of dictionaries of scores or ranks.  For example, if you
+have:
+
+scorelist = [{'milk':1.4,'cheese':2.6,'eggs':1.2,'bread':3.0},
+             {'milk':2.0,'cheese':3.2,'eggs':2.7,'bread':2.9},
+             {'milk':2.7,'cheese':3.0,'eggs':2.5,'bread':3.5}]
+
+in which there are three experts, four items, and scores have been provided (in which
+higher score = better), then to aggregate their ranks you would do the following:
+
+	from rankagg import FullListRankAggregator
+	FLRA = FullListRankAggregator()
+	aggRanks = FLRA.aggregate_ranks(scorelist)
+
+The aggregate ranks are also returned as a dictionary, with item:rank key-value pairs.
