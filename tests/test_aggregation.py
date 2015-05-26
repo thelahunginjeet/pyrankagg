@@ -25,3 +25,12 @@ class TestConversions:
         assert r3['cheese'] == 2,'Item \'cheese\' has the wrong rank!'
         assert r3['eggs'] == 4,'Item \'eggs\' has the wrong rank!'
         assert r3['bread'] == 1,'Item \'bread\' has the wrong rank!'
+
+
+    def test_borda_aggregation(self):
+        FLRA = rankagg.FullListRankAggregator()
+        aggRanks = FLRA.aggregate_ranks(self.scorelist,areScores=True,method='borda')
+        assert aggRanks['milk'] == 3,'Item \'milk\' has the wrong aggregate rank!'
+        assert aggRanks['cheese'] == 2,'Item \'cheese\' has the wrong aggregate rank!'
+        assert aggRanks['eggs'] == 4,'Item \'eggs\' has the wrong aggregate rank!'
+        assert aggRanks['bread'] == 1,'Item \'bread\' has the wrong aggregate rank!'
