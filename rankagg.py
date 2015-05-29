@@ -17,7 +17,9 @@ All rights reserved.
 
 from kbutil.listutil import sort_by_value
 from linear_assignment import linear_assignment
+from metrics import kendall_tau_distance
 from numpy import zeros,abs
+import copy
 
 class RankAggregator(object):
     """
@@ -171,6 +173,55 @@ class FullListRankAggregator(RankAggregator):
         for pair in path:
             aggRanks[self.indexToItem[pair[0]]] = p[pair[1]]
         return aggRanks
+
+
+    
+    def locally_kemenize(self,aggranks,ranklist):
+        """
+        Performs a local kemenization of the ranks in aggranks and the list
+        of expert rankings dictionaries in ranklist.  All rank lists must be full.  
+        The aggregate ranks can be obtained by any process - Borda, footrule,
+        Markov chain, etc.  Returns the locally kemeny optimal aggregate 
+        ranks.
+
+        A list of ranks is locally Kemeny optimal if you cannot obtain a
+        lower Kendall tau distance by performing a single transposition
+        of two adjacent ranks.
+        """
+        # covert ranks to lists, in a consistent item ordering, to use
+        # the kendall_tau_distance in metrics.py
+        lkranks = {}
+        items = aggranks.keys()
+        print items
+        sigma = [aggranks[i] for i in items]
+        print sigma
+        tau = []
+        for r in ranklist:
+            tau.append([r[i] for i in items])
+        print tau
+        # starting distance and distance of permuted list
+        SKorig = 0
+        # initial distance
+        for t in tau:
+            SKorig += kendall_tau_distance(sigma,t)
+        # now try all the pair swaps
+        for i in xrange(0,len(items)-1):
+            SKperm = 0
+            j = i + 1
+            piprime = copy.copy(sigma)
+            piprime[i],piprime[j] = piprime[j],piprime[i]
+            print piprime
+            for t in tau:
+                SKperm += kendall_tau_distance(piprime,t)                        
+            if SKperm < SKorig:
+                sigma = piprime
+                SKorig = SKperm
+        # rebuild the locally kemenized rank dictionary
+        for i in xrange(0,len(items)):
+            lkranks[items[i]] = sigma[i]
+        return lkranks
+                
+
 
                 
 
