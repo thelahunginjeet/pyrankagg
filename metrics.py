@@ -41,4 +41,3 @@ def kendall_tau_distance(s,t):
                 numDiscordant += 1
     return 2.0*numDiscordant/(len(s)*(len(s)-1))
 
-
