@@ -1,8 +1,8 @@
 Author: Kevin S. Brown (kevin.s.brown@uconn.edu, github.com/thelahunginjeet)
 
-A pure python package for rank aggregation/voting. Currenly, only full lists (in which
-each expert ranks all candidates) is supported, but I plan to extend this to partial
-list aggregation.  Rank aggregation can be performed either or scores (which are first
+A pure python package for rank aggregation/voting. Currently, only full lists (in which
+each expert ranks all candidates) are supported, but I plan to extend this to partial
+list aggregation.  Rank aggregation can be performed either on scores (which are first
 converted to ranks) or ranks.
 
 This package depends on code that sorts a dictionary by value.  This is provided by
