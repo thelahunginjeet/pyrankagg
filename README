@@ -24,7 +24,7 @@ scorelist = [{'milk':1.4,'cheese':2.6,'eggs':1.2,'bread':3.0},
 in which there are three experts, four items, and scores have been provided (in which
 higher score = better), then to aggregate their ranks you would do the following:
 
-	from rankagg import FullListRankAggregator
+	from pyrankagg import FullListRankAggregator
 	FLRA = FullListRankAggregator()
 	aggRanks = FLRA.aggregate_ranks(scorelist)
 
