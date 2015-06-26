@@ -32,7 +32,7 @@ class RankAggregator(object):
     def convert_to_ranks(self,scoreDict):
         """
         Accepts an input dictionary in which they keys are items to be ranked (numerical/string/etc.)
-        and the values are scores, in which a higher score is better.  Returns a dictionary of 
+        and the values are scores, in which a higher score is better.  Returns a dictionary of
         items and ranks, ranks in the range 1,...,n.
         """
         # default sort direction is ascending, so reverse (see sort_by_value docs)
@@ -58,7 +58,7 @@ class RankAggregator(object):
             self.indexToItem[next] = i
             next += 1
         return
-        
+
 
 class FullListRankAggregator(RankAggregator):
     """
@@ -83,7 +83,7 @@ class FullListRankAggregator(RankAggregator):
                 or item:rank pairs
 
             areScores : bool, optional
-                set to True if the experts provided scores, False if they 
+                set to True if the experts provided scores, False if they
                 provide ranks
 
             method : string, optional
@@ -113,9 +113,9 @@ class FullListRankAggregator(RankAggregator):
         """
         Computes aggregate rank by Borda score.  For each item and list of ranks,
         compute:
-                
+
                 B_i(c) = # of candidates ranks BELOW c in ranks_i
-        
+
         Then form:
 
                 B(c) = sum(B_i(c))
@@ -139,13 +139,13 @@ class FullListRankAggregator(RankAggregator):
 
     def footrule_aggregation(self,ranklist):
         """
-        Computes aggregate rank by Spearman footrule and bipartite graph 
-        matching, from a list of ranks.  For each candiate (thing to be 
+        Computes aggregate rank by Spearman footrule and bipartite graph
+        matching, from a list of ranks.  For each candiate (thing to be
         ranked) and each position (rank) we compute a matrix
 
             W(c,p) = (2/|S|^2)*sum(|tau_i(c) - p|)
 
-        where the sum runs over all the experts doing the ranking.  After 
+        where the sum runs over all the experts doing the ranking.  After
         that, Munkres' algorithm is used for the linear assignment/bipartite
         graph matching problem.
         """
@@ -175,13 +175,13 @@ class FullListRankAggregator(RankAggregator):
         return aggRanks
 
 
-    
+
     def locally_kemenize(self,aggranks,ranklist):
         """
         Performs a local kemenization of the ranks in aggranks and the list
-        of expert rankings dictionaries in ranklist.  All rank lists must be full.  
+        of expert rankings dictionaries in ranklist.  All rank lists must be full.
         The aggregate ranks can be obtained by any process - Borda, footrule,
-        Markov chain, etc.  Returns the locally kemeny optimal aggregate 
+        Markov chain, etc.  Returns the locally kemeny optimal aggregate
         ranks.
 
         A list of ranks is locally Kemeny optimal if you cannot obtain a
@@ -192,13 +192,10 @@ class FullListRankAggregator(RankAggregator):
         # the kendall_tau_distance in metrics.py
         lkranks = {}
         items = aggranks.keys()
-        print items
         sigma = [aggranks[i] for i in items]
-        print sigma
         tau = []
         for r in ranklist:
             tau.append([r[i] for i in items])
-        print tau
         # starting distance and distance of permuted list
         SKorig = 0
         # initial distance
@@ -210,9 +207,8 @@ class FullListRankAggregator(RankAggregator):
             j = i + 1
             piprime = copy.copy(sigma)
             piprime[i],piprime[j] = piprime[j],piprime[i]
-            print piprime
             for t in tau:
-                SKperm += kendall_tau_distance(piprime,t)                        
+                SKperm += kendall_tau_distance(piprime,t)
             if SKperm < SKorig:
                 sigma = piprime
                 SKorig = SKperm
@@ -220,13 +216,3 @@ class FullListRankAggregator(RankAggregator):
         for i in xrange(0,len(items)):
             lkranks[items[i]] = sigma[i]
         return lkranks
-                
-
-
-                
-
-
-        
-
-        
-
