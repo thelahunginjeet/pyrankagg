@@ -143,17 +143,21 @@ class FullListRankAggregator(RankAggregator):
         matching, from a list of ranks.  For each candiate (thing to be
         ranked) and each position (rank) we compute a matrix
 
-            W(c,p) = (2/|S|^2)*sum(|tau_i(c) - p|)
+            W(c,p) = sum(|tau_i(c) - p|)/S
 
-        where the sum runs over all the experts doing the ranking.  After
-        that, Munkres' algorithm is used for the linear assignment/bipartite
-        graph matching problem.
+        where the sum runs over all the experts doing the ranking.  S is a 
+        normalizer; if the number of ranks in the list is n, S is equal to
+        0.5*n^2 for n even and 0.5*(n^2 - 1) for n odd.
+        
+        After constructing W(c,p), Munkres' algorithm is used for the linear 
+        assignment/bipartite graph matching problem.
         """
         # lists are full so make an empty dictionary with the item keys
         items = ranklist[0].keys()
         # map these to matrix entries
         self.item_mapping(items)
-        scaling = 2.0/len(ranklist[0])**2
+        c = len(ranklist[0]) % 2
+        scaling = 2.0/(len(ranklist[0])**2 - c)
         # thes are the positions p (each item will get a rank()
         p = range(1,len(items)+1)
         # compute the matrix
