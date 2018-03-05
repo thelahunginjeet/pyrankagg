@@ -18,8 +18,11 @@ All rights reserved.
 from kbutil.listutil import sort_by_value
 from linear_assignment import linear_assignment
 from metrics import kendall_tau_distance
-from numpy import zeros,abs
+from numpy import zeros,abs,exp,sort,zeros_like,argmin,delete,mod
+from numpy.random import permutation
+from scipy.stats import binom
 import copy
+
 
 class RankAggregator(object):
     """
@@ -42,6 +45,19 @@ class RankAggregator(object):
         for t in y:
             ranks[t[0]] = t[1]
         return ranks
+
+
+    def item_ranks(self,rank_list):
+        """
+        Accepts an input list of ranks (each item in the list is a dictionary of item:rank pairs)
+        and returns a dictionary keyed on item, with value the list of ranks the item obtained
+        across all entire list of ranks.
+        """
+        item_ranks = {}.fromkeys(rank_list[0])
+        for k in item_ranks:
+            item_ranks[k] = [x[k] for x in rank_list]
+        return item_ranks
+
 
     def item_mapping(self,items):
         """
@@ -68,10 +84,14 @@ class FullListRankAggregator(RankAggregator):
     def __init__(self):
         super(RankAggregator,self).__init__()
         # used for method dispatch
-        self.mDispatch = {'borda':self.borda_aggregation,'spearman':self.footrule_aggregation}
+        self.mDispatch = {'borda':self.borda_aggregation,'spearman':self.footrule_aggregation,
+                'median':self.median_aggregation,'highest':self.highest_rank,'lowest':self.lowest_rank,
+                'stability':self.stability_selection,'exponential':self.exponential_weighting,
+                'sborda':self.stability_enhanced_borda,'eborda':self.exponential_enhanced_borda,
+                'robust':self.robust_aggregation,'rrobin':self.round_robin}
 
 
-    def aggregate_ranks(self,experts,areScores=True,method='borda'):
+    def aggregate_ranks(self,experts,areScores=True,method='borda',*args):
         """
         Combines the ranks in the list experts to obtain a single
         set of aggregate ranks.  Can operate on either scores
@@ -136,6 +156,212 @@ class FullListRankAggregator(RankAggregator):
         return self.convert_to_ranks(aggRanks)
 
 
+    def median_aggregation(self,rank_list):
+        """
+        Computes median aggregate rank.  Start's each items score M_i at zero,
+        and then for each rank 1,...,M, the item's score is incremented by the
+        number of lists in which it has that rank.  The first item over L/2
+        gets rank 1, the next rank 2, etc.  Ties are broken randomly.
+
+        Aggregate ranks are returned as a dictionary.
+        """
+        theta = 1.0*len(rank_list)/2
+        # this hold the scores
+        M = {}.fromkeys(rank_list[0])
+        for k in M:
+            M[k] = 0
+        # lists of item ranks (across all lists) for each item
+        item_ranks = self.item_ranks(rank_list)
+        # this holds the eventual voted ranks
+        med_ranks = {}.fromkeys(rank_list[0])
+        # the next rank that needs to be assigned
+        next_rank = 1
+        # once the next-to-last item has a rank, assign the one remaining item
+        #   the last rank
+        for r in range(1,len(med_ranks)):
+            # increment scores
+            for k in M:
+                M[k] += item_ranks[k].count(r)
+            # check if any of the items are over threshold; randomly permute
+            #   all over-threshold items for rank assignment (tie breaking)
+            items_over = list(permutation([k for k in M if M[k] >= theta]))
+            for i in range(len(items_over)):
+                med_ranks[items_over[i]] = next_rank + i
+                M.pop(items_over[i])
+            next_rank = next_rank + len(items_over)
+            if next_rank == len(med_ranks):
+                break
+        # if we are out of the loop, there should only be one item left to
+        #   rank
+        med_ranks[list(M.keys())[0]] = len(med_ranks)
+        return med_ranks
+
+
+    def highest_rank(self,rank_list):
+        """
+        Each item is assigned the highest rank it obtains in all of the
+        rank lists.  Ties are broken randomly.
+        """
+        min_ranks = {}.fromkeys(rank_list[0])
+        item_ranks = self.item_ranks(rank_list)
+        for k in min_ranks:
+            min_ranks[k] = min(item_ranks[k])
+        # sort the highest ranks dictionary by value (ascending order)
+        pairs = sort_by_value(min_ranks)
+        # assign ranks in order
+        pairs = zip(zip(*pairs)[0],range(1,len(item_ranks)+1))
+        # over-write the min_ranks dict with the aggregate ranks
+        for (item,rank) in pairs:
+            min_ranks[item] = rank
+        return min_ranks
+
+
+    def lowest_rank(self,rank_list):
+        """
+        Each item is assigned the lowest rank it obtains in all of the rank
+        lists.  Ties are broken randomly.
+        """
+        max_ranks = {}.fromkeys(rank_list[0])
+        item_ranks = self.item_ranks(rank_list)
+        for k in max_ranks:
+            max_ranks[k] = max(item_ranks[k])
+        # sort the worst ranks dictionary by value (ascending order)
+        pairs = sort_by_value(max_ranks)
+        # assign ranks in order
+        pairs = zip(zip(*pairs)[0],range(1,len(item_ranks)+1))
+        # over-write the max_ranks dict with the aggregate ranks
+        for (item,rank) in pairs:
+            max_ranks[item] = rank
+        return max_ranks
+
+
+    def stability_selection(self,rank_list,theta=None):
+        """
+        For every list in which an item is ranked equal to or higher than theta
+        (so <= theta), it recieves one point.  Items are then ranked from most to
+        least points and assigned ranks.  If theta = None, then it is set equal to
+        half the number of items to rank.
+        """
+        if theta is None:
+            theta = 1.0*len(rank_list[0])/2
+        scores = {}.fromkeys(rank_list[0])
+        item_ranks = self.item_ranks(rank_list)
+        for k in scores:
+            scores[k] = sum([i <= theta for i in item_ranks[k]])
+        return self.convert_to_ranks(scores)
+
+
+    def exponential_weighting(self,rank_list,theta=None):
+        """
+        Like stability selection, except items are awarded points according to
+        Exp(-r/theta), where r = rank and theta is a threshold.  If theta = None,
+        then it is set equal to half the number of items to rank.
+        """
+        if theta is None:
+            theta = 1.0*len(rank_list[0])/2
+        scores = {}.fromkeys(rank_list[0])
+        item_ranks = self.item_ranks(rank_list)
+        for k in scores:
+            scores[k] = exp([-1.0*x/theta for x in item_ranks[k]]).sum()
+        return self.convert_to_ranks(scores)
+
+
+    def stability_enhanced_borda(self,rank_list,theta=None):
+        """
+        For stability enhanced Borda, each item's Borda score is multiplied
+        by its stability score and larger scores are assigned higher ranks.
+        """
+        if theta is None:
+            theta = 1.0*len(rank_list[0])/2
+        scores = {}.fromkeys(rank_list[0])
+        N = len(scores)
+        item_ranks = self.item_ranks(rank_list)
+        for k in scores:
+            borda = sum([N - x for x in item_ranks[k]])
+            ss = sum([i <= theta for i in item_ranks[k]])
+            scores[k] = borda*ss
+        return self.convert_to_ranks(scores)
+
+
+    def exponential_enhanced_borda(self,rank_list,theta=None):
+        """
+        For exponential enhanced Borda, each item's Borda score is multiplied
+        by its exponential weighting score and larger scores are assigned higher
+        ranks.
+        """
+        if theta is None:
+            theta = 1.0*len(rank_list[0])/2
+        scores = {}.fromkeys(rank_list[0])
+        N = len(scores)
+        item_ranks = self.item_ranks(rank_list)
+        for k in scores:
+            borda = sum([N - x for x in item_ranks[k]])
+            expw = exp([-1.0*x/theta for x in item_ranks[k]]).sum()
+            scores[k] = borda*expw
+        return self.convert_to_ranks(scores)
+
+
+    def robust_aggregation(self,rank_list):
+        """
+        Implements the robust rank aggregation scheme of Kolde, Laur, Adler,
+        and Vilo in "Robust rank aggregation for gene list integration and
+        meta-analysis", Bioinformatics 28(4) 2012.  Essentially compares
+        order statistics of normalized ranks to a uniform distribution.
+        """
+        def beta_calc(x):
+            bp = zeros_like(x)
+            n = len(x)
+            for k in range(n):
+                b = binom(n,x[k])
+                for l in range(k,n):
+                    bp[k] += b.pmf(l+1)
+            return bp
+        scores = {}.fromkeys(rank_list[0])
+        item_ranks = self.item_ranks(rank_list)
+        N = len(scores)
+        # sort and normalize the ranks, and then compute the item score
+        for item in item_ranks:
+            item_ranks[item] = sort([1.0*x/N for x in item_ranks[item]])
+            # the 1.0 here is to make *large* scores correspond to better ranks
+            scores[item] = 1.0 - min(beta_calc(item_ranks[item]))
+        return self.convert_to_ranks(scores)
+
+
+    def round_robin(self,rank_list):
+        """
+        Round Robin aggregation.  Lists are given a random order.  The highest
+        ranked item in List 1 is given rank 1 and then removed from consideration.
+        The highest ranked item in List 2 is given rank 2, etc.  Continue until
+        all ranks have been assigned.
+        """
+        rr_ranks = {}.fromkeys(rank_list[0])
+        N = len(rr_ranks)
+        next_rank = 1
+        next_list = 0
+        # matrix of ranks
+        rr_matrix = zeros((len(rr_ranks),len(rank_list)))
+        items = list(rr_ranks.keys())
+        # fill in the matrix
+        for i in range(len(items)):
+            for j in range(len(rank_list)):
+                rr_matrix[i,j] = rank_list[j][items[i]]
+        # shuffle the columns to randomize the list order
+        rr_matrix = rr_matrix[:,permutation(rr_matrix.shape[1])]
+        # start ranking
+        while next_rank < N:
+            # find the highest rank = lowest number in the row
+            item_indx = argmin(rr_matrix[:,next_list])
+            item_to_rank = items[item_indx]
+            # rank the item and remove it from the itemlist and matrix
+            rr_ranks[item_to_rank] = next_rank
+            rr_matrix = delete(rr_matrix,item_indx,axis=0)
+            items.remove(item_to_rank)
+            next_rank += 1
+            next_list = mod(next_list + 1,len(rank_list))
+        # should only be one item left
+        rr_ranks[items[0]] = N
+        return rr_ranks
+
 
     def footrule_aggregation(self,ranklist):
         """
@@ -145,11 +371,11 @@ class FullListRankAggregator(RankAggregator):
 
             W(c,p) = sum(|tau_i(c) - p|)/S
 
-        where the sum runs over all the experts doing the ranking.  S is a 
+        where the sum runs over all the experts doing the ranking.  S is a
         normalizer; if the number of ranks in the list is n, S is equal to
         0.5*n^2 for n even and 0.5*(n^2 - 1) for n odd.
-        
-        After constructing W(c,p), Munkres' algorithm is used for the linear 
+
+        After constructing W(c,p), Munkres' algorithm is used for the linear
         assignment/bipartite graph matching problem.
         """
         # lists are full so make an empty dictionary with the item keys
