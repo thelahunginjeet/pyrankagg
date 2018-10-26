@@ -21,7 +21,7 @@ def spearman_footrule_distance(s,t):
 
 def kendall_tau_distance(s,t):
     """
-    Computes the Kendall tau distance between two full lists of ranks, 
+    Computes the Kendall tau distance between two full lists of ranks,
     which counts all discordant pairs (where s(i) < s(j) but t(i) > t(j),
     or vice versa) and divides by:
 
@@ -29,15 +29,14 @@ def kendall_tau_distance(s,t):
 
     This is a slow version of the distance; a faster version can be
     implemented using a version of merge sort (TODO).
-    
+
     s,t should be array-like (lists are OK).
 
     If s,t are *not* full, this function should not be used.
     """
     numDiscordant = 0
-    for i in xrange(0,len(s)):
-        for j in xrange(i+1,len(t)):
+    for i in range(0,len(s)):
+        for j in range(i+1,len(t)):
             if (s[i] < s[j] and t[i] > t[j]) or (s[i] > s[j] and t[i] < t[j]):
                 numDiscordant += 1
     return 2.0*numDiscordant/(len(s)*(len(s)-1))
-

@@ -16,12 +16,20 @@ All rights reserved.
 """
 
 from kbutil.listutil import sort_by_value
-from linear_assignment import linear_assignment
-from metrics import kendall_tau_distance
+from .assignment import linear_assignment
+from .metrics import kendall_tau_distance
 from numpy import zeros,abs,exp,sort,zeros_like,argmin,delete,mod
 from numpy.random import permutation
+from operator import itemgetter
 from scipy.stats import binom
 import copy
+
+
+def sort_by_value(d,reverse=False):
+    """
+    One of many ways to sort a dictionary by value.
+    """
+    return sorted(d.items(), key = itemgetter(1), reverse=reverse)
 
 
 class RankAggregator(object):
@@ -40,7 +48,7 @@ class RankAggregator(object):
         """
         # default sort direction is ascending, so reverse (see sort_by_value docs)
         x = sort_by_value(scoreDict,True)
-        y = zip(zip(*x)[0],range(1,len(x)+1))
+        y = list(zip(list(zip(*x))[0],range(1,len(x)+1)))
         ranks = {}
         for t in y:
             ranks[t[0]] = t[1]
@@ -122,10 +130,10 @@ class FullListRankAggregator(RankAggregator):
         else:
             ranklist = experts
         # now dispatch on the string method
-        if self.mDispatch.has_key(method):
+        if method in self.mDispatch:
             aggRanks = self.mDispatch[method](ranklist)
         else:
-            print 'ERROR: method \'%\' invalid.'
+            print('ERROR: method \'',method,'\'  invalid.')
         return aggRanks
 
 
@@ -209,7 +217,7 @@ class FullListRankAggregator(RankAggregator):
         # sort the highest ranks dictionary by value (ascending order)
         pairs = sort_by_value(min_ranks)
         # assign ranks in order
-        pairs = zip(zip(*pairs)[0],range(1,len(item_ranks)+1))
+        pairs = list(zip(list(zip(*pairs))[0],range(1,len(item_ranks)+1)))
         # over-write the min_ranks dict with the aggregate ranks
         for (item,rank) in pairs:
             min_ranks[item] = rank
@@ -228,7 +236,7 @@ class FullListRankAggregator(RankAggregator):
         # sort the worst ranks dictionary by value (ascending order)
         pairs = sort_by_value(max_ranks)
         # assign ranks in order
-        pairs = zip(zip(*pairs)[0],range(1,len(item_ranks)+1))
+        pairs = list(zip(list(zip(*pairs))[0],range(1,len(item_ranks)+1)))
         # over-write the max_ranks dict with the aggregate ranks
         for (item,rank) in pairs:
             max_ranks[item] = rank
@@ -391,7 +399,7 @@ class FullListRankAggregator(RankAggregator):
         for r in ranklist:
             for item in items:
                 taui = r[item]
-                for j in xrange(0,len(p)):
+                for j in range(0,len(p)):
                     delta = abs(taui - p[j])
                     # matrix indices
                     W[self.itemToIndex[item],j] += delta
@@ -421,7 +429,7 @@ class FullListRankAggregator(RankAggregator):
         # covert ranks to lists, in a consistent item ordering, to use
         # the kendall_tau_distance in metrics.py
         lkranks = {}
-        items = aggranks.keys()
+        items = list(aggranks.keys())
         sigma = [aggranks[i] for i in items]
         tau = []
         for r in ranklist:
@@ -432,7 +440,7 @@ class FullListRankAggregator(RankAggregator):
         for t in tau:
             SKorig += kendall_tau_distance(sigma,t)
         # now try all the pair swaps
-        for i in xrange(0,len(items)-1):
+        for i in range(0,len(items)-1):
             SKperm = 0
             j = i + 1
             piprime = copy.copy(sigma)
@@ -443,6 +451,6 @@ class FullListRankAggregator(RankAggregator):
                 sigma = piprime
                 SKorig = SKperm
         # rebuild the locally kemenized rank dictionary
-        for i in xrange(0,len(items)):
+        for i in range(0,len(items)):
             lkranks[items[i]] = sigma[i]
         return lkranks

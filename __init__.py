@@ -1,1 +1,1 @@
-__all__ = ["metrics","rankagg","linear_assignment"]
+__all__ = ["metrics","rankagg","assignment"]

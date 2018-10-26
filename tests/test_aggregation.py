@@ -44,13 +44,13 @@ class TestFullListAggregation:
         assert aggRanks['eggs'] == 4,'Item \'eggs\' has the wrong aggregate rank!'
         assert aggRanks['bread'] == 1,'Item \'bread\' has the wrong aggregate rank!'
 
-    
+
     def test_local_kemenization(self):
         FLRA = rankagg.FullListRankAggregator()
         aggRanks = FLRA.aggregate_ranks(self.scorelist,areScores=True,method='borda')
         ranklist = [FLRA.convert_to_ranks(s) for s in self.scorelist]
         lkRanks = FLRA.locally_kemenize(aggRanks,ranklist)
-        print lkRanks
+        print(lkRanks)
         assert lkRanks['milk'] == 3,'Item \'milk\' has the wrong aggregate rank!'
         assert lkRanks['cheese'] == 2,'Item \'cheese\' has the wrong aggregate rank!'
         assert lkRanks['eggs'] == 4,'Item \'eggs\' has the wrong aggregate rank!'
