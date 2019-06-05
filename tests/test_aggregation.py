@@ -1,6 +1,39 @@
 from pyrankagg import *
 import numpy as np
 
+
+class TestPartialListAggregation:
+
+    def setup(self):
+        self.ranklist = [{'A':1,'B':3,'C':2},
+                         {'A':2,'B':1},
+                         {'A':1,'B':4,'C':3,'D':2}]
+
+    def test_borda_mean_agg(self):
+        PLRA = rankagg.PartialListRankAggregator()
+        scores,agg_ranks = PLRA.aggregate_ranks(self.ranklist,method='borda',stat='mean')
+        # for this statistic, B and C are tied, so only A and D have unique ranks
+        assert agg_ranks['A'] == 1,'Item \'A\' has the wrong rank!'
+        assert agg_ranks['D'] == 4,'Item \'D\' has the wrong rank!'
+
+
+    def test_borda_med_agg(self):
+        PLRA = rankagg.PartialListRankAggregator()
+        scores,agg_ranks = PLRA.aggregate_ranks(self.ranklist,method='borda',stat='median')
+        # for this statistic, B,C, and D are all tied and only A has a unique rank
+        assert agg_ranks['A'] == 1,'Item \'A\' has the wrong rank!'
+
+
+    def test_borda_geo_agg(self):
+        PLRA = rankagg.PartialListRankAggregator()
+        scores,agg_ranks = PLRA.aggregate_ranks(self.ranklist,method='borda',stat='geo')
+        # ranks are determined here
+        assert agg_ranks['A'] == 1,'Item \'A\' has the wrong rank!'
+        assert agg_ranks['B'] == 2,'Item \'B\' has the wrong rank!'
+        assert agg_ranks['C'] == 3,'Item \'C\' has the wrong rank!'
+        assert agg_ranks['D'] == 4,'Item \'D\' has the wrong rank!'
+
+
 class TestFullListAggregation:
 
     def setup(self):

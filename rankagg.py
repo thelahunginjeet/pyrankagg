@@ -18,10 +18,10 @@ All rights reserved.
 from kbutil.listutil import sort_by_value
 from .assignment import linear_assignment
 from .metrics import kendall_tau_distance
-from numpy import zeros,abs,exp,sort,zeros_like,argmin,delete,mod
+from numpy import zeros,abs,exp,sort,zeros_like,argmin,delete,mod,mean,median
 from numpy.random import permutation
 from operator import itemgetter
-from scipy.stats import binom
+from scipy.stats import binom,gmean
 import copy
 
 
@@ -87,16 +87,18 @@ class RankAggregator(object):
 class PartialListRankAggregator(RankAggregator):
     """
     Performs rank aggregation, using a variety of methods, for partial lists
-    (all items were all ranked by all experts).
+    (all items were all ranked by all experts).  Borda methods that are prefixed with 't'
+    refer to aggregate statistics on truncated Borda counts (so all unranked items are
+    given rank = max(rank of ranked items) + 1), effectively meaning they will have scores
+    equal to zero.
     """
     def __init__(self):
         super(RankAggregator,self).__init__()
         # method dispatch
-        self.mDispatch = {'borda_mean':self.mean_borda_aggregation,'borda_med':self.med_borda_aggregation,
-            'borda_geo':self.geo_borda_aggregation}
+        self.mDispatch = {'borda':self.borda_aggregation}
 
 
-    def aggregate_ranks(self,experts,method='borda_mean',*args):
+    def aggregate_ranks(self,experts,method='borda',stat='mean'):
         """
         Combines the ranks in the list experts to obtain a single set of aggregate ranks.
         Currently operates only on ranks, not scores.
@@ -109,42 +111,74 @@ class PartialListRankAggregator(RankAggregator):
 
             method: string, optional
                 which method to use to perform the rank aggregation
+
+            stat: string, optional
+                statistic used to combine Borda scores; only relevant for Borda
+                aggregation
         """
-        aggRanks = {}
+        agg_ranks = {}
+        scores = {}
         # if we are using any of the borda scores, we have to supplement the ranklist
-        #   to produce dummy (tied) ranks for all the unranked items
+        #   to produce dummy (tied) ranks for all the unranked items.  Scores are
+        #   returned because of the lieklihood of ties with rankers that only rank
+        #   a few items
         if method in self.mDispatch:
-            if ['borda_mean','borda_med','borda_geo'].count(method) > 1:
-                # supplement ranklist
-                supp_experts = self.supplement_ranklist(experts)
-                aggRanks = self.mDispatch[method](supp_experts)
+            if ['borda'].count(method) > 0:
+                # need to convert to truncated Borda lists
+                supp_experts = self.supplement_experts(experts)
+                scores,agg_ranks = self.mDispatch['borda'](supp_experts,stat)
             else:
-                aggRanks = self.mDispatch[method](experts)
+                # does not use stat (not a borda method), does not supplement ranklists
+                scores,agg_ranks = self.mDispatch[method](experts)
         else:
             print('ERROR: method',method,'invalid.')
-        return aggRanks
+        return scores,agg_ranks
 
 
     def supplement_experts(self,experts):
         """
         Converts partial lists to full lists by supplementing each expert's ranklist with all
         unranked items, each item having rank max(rank) + 1 (different for different experts).
+        (This has the effect of converting partial Borda lists to full lists via truncated
+        count).
         """
         supp_experts = []
         # get the list of all the items
-        [list(x.keys()) for x in experts]
-        all_items = list(frozenset().union(*[list(x.keys()) for x in supp_experts]))
+        all_items = list(frozenset().union(*[list(x.keys()) for x in experts]))
         for rank_dict in experts:
             new_ranks = {}
-            max_rank = max(rank_dict).values()
+            max_rank = max(rank_dict.values())
             for item in all_items:
                 if item in rank_dict:
                     new_ranks[item] = rank_dict[item]
                 else:
                     new_ranks[item] = max_rank + 1
-            supp_experts.appedn(new_ranks)
+            supp_experts.append(new_ranks)
         return supp_experts
 
+
+    def borda_aggregation(self,supp_experts,stat):
+        """
+        Rank is equal to mean rank on the truncated lists; the statistic is also returned,
+        since in a situation where rankers only rank a few of the total list of items, ties are
+        quite likely and some ranks will be arbitrary.
+
+        Choices for the statistic are mean, median, and geo (for geometric mean).
+        """
+        scores = {}
+        stat_dispatch = {'mean':mean,'median':median,'geo':gmean}
+        # all lists are full, so any set of dict keys will do
+        for item in supp_experts[0].keys():
+            vals_list = [x[item] for x in supp_experts]
+            scores[item] = stat_dispatch[stat](vals_list)
+        # in order to use convert_to_ranks, we need to manipulate the scores
+        #   so that higher values = better; right now, lower is better.  So
+        #   just change the sign of the score
+        flip_scores = copy.copy(scores)
+        for k in flip_scores:
+            flip_scores[k] = -1.0*flip_scores[k]
+        agg_ranks = self.convert_to_ranks(flip_scores)
+        return scores,agg_ranks
 
 
 class FullListRankAggregator(RankAggregator):

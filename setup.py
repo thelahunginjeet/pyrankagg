@@ -14,7 +14,7 @@ class PyTest(Command):
         raise SystemExit(errno)
 
 setup(name='pyrankagg',
-      version='2.0',
+      version='2.1',
       description='Python Package for Rank Aggregation',
       author='Kevin Brown',
       author_email='kevin.s.brown@uconn.edu',
