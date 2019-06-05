@@ -16,7 +16,7 @@ All rights reserved.
 """
 
 from kbutil.listutil import sort_by_value
-from .assignment import linear_assignment
+from .linear_assignment import linear_assignment
 from .metrics import kendall_tau_distance
 from numpy import zeros,abs,exp,sort,zeros_like,argmin,delete,mod
 from numpy.random import permutation
@@ -84,6 +84,69 @@ class RankAggregator(object):
         return
 
 
+class PartialListRankAggregator(RankAggregator):
+    """
+    Performs rank aggregation, using a variety of methods, for partial lists
+    (all items were all ranked by all experts).
+    """
+    def __init__(self):
+        super(RankAggregator,self).__init__()
+        # method dispatch
+        self.mDispatch = {'borda_mean':self.mean_borda_aggregation,'borda_med':self.med_borda_aggregation,
+            'borda_geo':self.geo_borda_aggregation}
+
+
+    def aggregate_ranks(self,experts,method='borda_mean',*args):
+        """
+        Combines the ranks in the list experts to obtain a single set of aggregate ranks.
+        Currently operates only on ranks, not scores.
+
+        INPUT:
+        ------
+            experts: list of dictionaries, required
+                each element of experts should be a dictionary of item:rank
+                pairs
+
+            method: string, optional
+                which method to use to perform the rank aggregation
+        """
+        aggRanks = {}
+        # if we are using any of the borda scores, we have to supplement the ranklist
+        #   to produce dummy (tied) ranks for all the unranked items
+        if method in self.mDispatch:
+            if ['borda_mean','borda_med','borda_geo'].count(method) > 1:
+                # supplement ranklist
+                supp_experts = self.supplement_ranklist(experts)
+                aggRanks = self.mDispatch[method](supp_experts)
+            else:
+                aggRanks = self.mDispatch[method](experts)
+        else:
+            print('ERROR: method',method,'invalid.')
+        return aggRanks
+
+
+    def supplement_experts(self,experts):
+        """
+        Converts partial lists to full lists by supplementing each expert's ranklist with all
+        unranked items, each item having rank max(rank) + 1 (different for different experts).
+        """
+        supp_experts = []
+        # get the list of all the items
+        [list(x.keys()) for x in experts]
+        all_items = list(frozenset().union(*[list(x.keys()) for x in supp_experts]))
+        for rank_dict in experts:
+            new_ranks = {}
+            max_rank = max(rank_dict).values()
+            for item in all_items:
+                if item in rank_dict:
+                    new_ranks[item] = rank_dict[item]
+                else:
+                    new_ranks[item] = max_rank + 1
+            supp_experts.appedn(new_ranks)
+        return supp_experts
+
+
+
 class FullListRankAggregator(RankAggregator):
     """
     Performs rank aggregation, using a variety of methods, for full lists
@@ -106,6 +169,7 @@ class FullListRankAggregator(RankAggregator):
         or ranks; scores are assumed to always mean higher=better.
 
         INPUT:
+        ------
             experts : list of dictionaries, required
                 each element of experts should be a dictionary of item:score
                 or item:rank pairs
