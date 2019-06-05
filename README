@@ -1,9 +1,9 @@
-Author: Kevin S. Brown (kevin.s.brown@uconn.edu, github.com/thelahunginjeet)
+Author: Kevin S. Brown (kevin.brown@oregonstate.edu, github.com/thelahunginjeet)
 
-A pure python package for rank aggregation/voting. Currently, only full lists (in which
-each expert ranks all candidates) are supported, but I plan to extend this to partial
-list aggregation.  Rank aggregation can be performed either on scores (which are first
-converted to ranks) or ranks.
+A pure python package for rank aggregation/voting. Full lists have a variety of
+options for ranking algorithms.  Currently, only Borda scoring (with mean, median,
+and geometric mean) statistics is supported for partial lists, via conversion to
+truncated Borda lists.  This will change over time.
 
 This package depends on code that sorts a dictionary by value.  This is provided by
 kbutil.listutil.sort_by_value.  So you either need to install my kbutil package (also
@@ -29,3 +29,11 @@ higher score = better), then to aggregate their ranks you would do the following
 	aggRanks = FLRA.aggregate_ranks(scorelist)
 
 The aggregate ranks are also returned as a dictionary, with item:rank key-value pairs.
+
+As an example ranklist that you can provide to the PartialListRankAggregator:
+
+ranklist = [{'A':1,'B':3,'C':2},
+						{'A':2,'B':1},
+						{'A':1,'B':4,'C':3,'D':2}]
+
+This package should be fully compatible with python 3.x as of 06/05/2019.
