@@ -16,7 +16,7 @@ All rights reserved.
 """
 
 from kbutil.listutil import sort_by_value
-from .linear_assignment import linear_assignment
+from .assignment import linear_assignment
 from .metrics import kendall_tau_distance
 from numpy import zeros,abs,exp,sort,zeros_like,argmin,delete,mod
 from numpy.random import permutation
