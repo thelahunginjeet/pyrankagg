@@ -34,6 +34,14 @@ class TestPartialListAggregation:
         assert agg_ranks['D'] == 4,'Item \'D\' has the wrong rank!'
 
 
+    def test_mod_borda_agg(self):
+        PLRA = rankagg.PartialListRankAggregator()
+        scores,agg_ranks = PLRA.aggregate_ranks(self.ranklist,method='modborda')
+        # B and C are tied
+        assert agg_ranks['A'] == 1,'Item \'A\' has the wrong rank!'
+        assert agg_ranks['D'] == 4,'Item \'D\' has the wrong rank!'
+
+
 class TestFullListAggregation:
 
     def setup(self):

@@ -21,6 +21,7 @@ from .metrics import kendall_tau_distance
 from numpy import zeros,abs,exp,sort,zeros_like,argmin,delete,mod,mean,median
 from numpy.random import permutation
 from operator import itemgetter
+from collections import defaultdict
 from scipy.stats import binom,gmean
 import copy
 
@@ -95,7 +96,7 @@ class PartialListRankAggregator(RankAggregator):
     def __init__(self):
         super(RankAggregator,self).__init__()
         # method dispatch
-        self.mDispatch = {'borda':self.borda_aggregation}
+        self.mDispatch = {'borda':self.borda_aggregation,'modborda':self.modified_borda_aggregation}
 
 
     def aggregate_ranks(self,experts,method='borda',stat='mean'):
@@ -120,15 +121,15 @@ class PartialListRankAggregator(RankAggregator):
         scores = {}
         # if we are using any of the borda scores, we have to supplement the ranklist
         #   to produce dummy (tied) ranks for all the unranked items.  Scores are
-        #   returned because of the lieklihood of ties with rankers that only rank
-        #   a few items
+        #   returned because of the likelihood of ties when rankers only rank a
+        #   handful of the total item set
         if method in self.mDispatch:
             if ['borda'].count(method) > 0:
                 # need to convert to truncated Borda lists
                 supp_experts = self.supplement_experts(experts)
                 scores,agg_ranks = self.mDispatch['borda'](supp_experts,stat)
             else:
-                # does not use stat (not a borda method), does not supplement ranklists
+                # methods that don't supplement expert lists
                 scores,agg_ranks = self.mDispatch[method](experts)
         else:
             print('ERROR: method',method,'invalid.')
@@ -179,6 +180,27 @@ class PartialListRankAggregator(RankAggregator):
             flip_scores[k] = -1.0*flip_scores[k]
         agg_ranks = self.convert_to_ranks(flip_scores)
         return scores,agg_ranks
+
+
+    def modified_borda_aggregation(self,experts):
+        """
+        Uses modified Borda counts to deal with partial lists.  For a ranker who only
+        ranks m < n options, each item recieves a score of max(m + 1 - r,0), where r is the
+        rank of the item.  This has the effect of giving the last item ranked m points
+        and any unranked items zero points.  Ranks are then set using the modified
+        scores.
+        """
+        scores = defaultdict(int)
+        # lists are not full, so we need the universe of ranked items
+        all_items = list(frozenset().union(*[list(x.keys()) for x in experts]))
+        for ranker in experts:
+            m = len(ranker)
+            for item in ranker:
+                scores[item] += m + 1 - ranker[item]
+        # now convert scores to ranks
+        agg_ranks = self.convert_to_ranks(scores)
+        return scores,agg_ranks
+
 
 
 class FullListRankAggregator(RankAggregator):
