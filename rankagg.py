@@ -18,7 +18,7 @@ All rights reserved.
 from kbutil.listutil import sort_by_value
 from .assignment import linear_assignment
 from .metrics import kendall_tau_distance
-from numpy import zeros,abs,exp,sort,zeros_like,argmin,delete,mod,mean,median
+from numpy import zeros,abs,exp,sort,zeros_like,argmin,delete,mod,mean,median,dot,array
 from numpy.random import permutation
 from operator import itemgetter
 from collections import defaultdict
@@ -40,6 +40,34 @@ class RankAggregator(object):
     """
     def __init__(self):
         pass
+
+
+    def item_universe(self,rank_list):
+        """
+        Determines the universe of ranked items (union of all the items ranked by all
+        experts).  Not necessary for full lists.
+        """
+        return list(frozenset().union(*[list(x.keys()) for x in rank_list]))
+
+
+    def first_order_marginals(self,rank_list):
+        """
+        Computes m_ik, the fraction of rankers that ranks item i as their kth choice
+        (see Ammar and Shah, "Efficient Rank Aggregation Using Partial Data").  Works
+        with either full or partial lists.
+        """
+        # get list of all the items
+        all_items = self.item_universe(rank_list)
+        # dictionaries for creating the matrix
+        self.item_mapping(all_items)
+        # create the m_ik matrix and fill it in
+        m_ik = zeros((len(all_items),len(all_items)))
+        n_r = len(rank_list)
+        for r in rank_list:
+            for item in r:
+                m_ik[self.itemToIndex[item],r[item]-1] += 1
+        return m_ik/n_r
+
 
     def convert_to_ranks(self,scoreDict):
         """
@@ -96,7 +124,8 @@ class PartialListRankAggregator(RankAggregator):
     def __init__(self):
         super(RankAggregator,self).__init__()
         # method dispatch
-        self.mDispatch = {'borda':self.borda_aggregation,'modborda':self.modified_borda_aggregation}
+        self.mDispatch = {'borda':self.borda_aggregation,'modborda':self.modified_borda_aggregation,
+            'lone':self.lone_aggregation}
 
 
     def aggregate_ranks(self,experts,method='borda',stat='mean'):
@@ -145,7 +174,7 @@ class PartialListRankAggregator(RankAggregator):
         """
         supp_experts = []
         # get the list of all the items
-        all_items = list(frozenset().union(*[list(x.keys()) for x in experts]))
+        all_items = self.item_universe(experts)
         for rank_dict in experts:
             new_ranks = {}
             max_rank = max(rank_dict.values())
@@ -192,12 +221,32 @@ class PartialListRankAggregator(RankAggregator):
         """
         scores = defaultdict(int)
         # lists are not full, so we need the universe of ranked items
-        all_items = list(frozenset().union(*[list(x.keys()) for x in experts]))
+        all_items = self.item_universe(experts)
         for ranker in experts:
             m = len(ranker)
             for item in ranker:
                 scores[item] += m + 1 - ranker[item]
         # now convert scores to ranks
+        agg_ranks = self.convert_to_ranks(scores)
+        return scores,agg_ranks
+
+
+    def lone_aggregation(self,experts):
+        """
+        Implements the l1 ranking scheme of Ammar and Shah, "Efficient Rank
+        Aggregation Using Partial Data"
+        """
+        scores = {}
+        # construct the ranker-item matrix m_ik
+        m_ik = self.first_order_marginals(experts)
+        n = len(self.itemToIndex)
+        # now do the multiplication
+        s_vec = n - array(list(range(1,n+1)))
+        s_vec = dot(m_ik,s_vec)
+        # array of scores
+        for i in range(len(s_vec)):
+            scores[self.indexToItem[i]] = s_vec[i]
+        # convert to ranks
         agg_ranks = self.convert_to_ranks(scores)
         return scores,agg_ranks
 

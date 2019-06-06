@@ -42,6 +42,16 @@ class TestPartialListAggregation:
         assert agg_ranks['D'] == 4,'Item \'D\' has the wrong rank!'
 
 
+    def test_lone_agg(self):
+        PLRA = rankagg.PartialListRankAggregator()
+        scores,agg_ranks = PLRA.aggregate_ranks(self.ranklist,method='lone')
+        # B and C are tied
+        assert agg_ranks['A'] == 1,'Item \'A\' has the wrong rank!'
+        assert agg_ranks['B'] == 2,'Item \'B\' has the wrong rank!'
+        assert agg_ranks['C'] == 3,'Item \'C\' has the wrong rank!'
+        assert agg_ranks['D'] == 4,'Item \'D\' has the wrong rank!'
+
+
 class TestFullListAggregation:
 
     def setup(self):
