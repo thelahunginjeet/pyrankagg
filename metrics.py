@@ -57,25 +57,27 @@ def partial_kendall(s1,s2,p=0.5):
                 cardD += 1
             elif s1[i] == s1[j] and s2[i] != s2[j]:
                 cardR1 += 1
-            elif s2[i] == s2[i] and s1[i] != s1[j]:
+            elif s2[i] == s2[j] and s1[i] != s1[j]:
                 cardR2 += 1
-    return cardD + p*(cardR1 + cardR2)
+    return (cardD + p*(cardR1 + cardR2))/(k*(k-1))
 
 
 def partial_hausdorff(s1,s2):
     """
     Hausdorff distance for partial rank lists; as in partial_kendall, could be
-    sped up by more efficient set size calculation.
+    sped up by more efficient set size calculation.  I normalize the distance by
+    dividing by k*(k-1)
     """
     cardD = 0
     cardR1 = 0
     cardR2 = 0
+    k = len(s1)
     for i in range(len(s1)):
         for j in range(len(s2)):
             if s1[i] < s1[j] and s2[i] > s2[j]:
                 cardD += 1
             elif s1[i] == s1[j] and s2[i] != s2[j]:
                 cardR1 += 1
-            elif s2[i] == s2[i] and s1[i] != s1[j]:
+            elif s2[i] == s2[j] and s1[i] != s1[j]:
                 cardR2 += 1
-    return cardD + max(cardR1,cardR2)
+    return (cardD + max(cardR1,cardR2))/(k*(k-1))
