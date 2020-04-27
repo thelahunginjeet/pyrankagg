@@ -40,3 +40,42 @@ def kendall_tau_distance(s,t):
             if (s[i] < s[j] and t[i] > t[j]) or (s[i] > s[j] and t[i] < t[j]):
                 numDiscordant += 1
     return 2.0*numDiscordant/(len(s)*(len(s)-1))
+
+
+def partial_kendall(s1,s2,p=0.5):
+    """
+    Kendall distance with penalty p between two partial rank lists (lists with ties).
+    This could be sped up with more efficient computation of the size of the sets R1,
+    R2, and D.
+    """
+    cardD = 0
+    cardR1 = 0
+    cardR2 = 0
+    for i in range(len(s1)):
+        for j in range(len(s2)):
+            if s1[i] < s1[j] and s2[i] > s2[j]:
+                cardD += 1
+            elif s1[i] == s1[j] and s2[i] != s2[j]:
+                cardR1 += 1
+            elif s2[i] == s2[i] and s1[i] != s1[j]:
+                cardR2 += 1
+    return cardD + p*(cardR1 + cardR2)
+
+
+def partial_hausdorff(s1,s2):
+    """
+    Hausdorff distance for partial rank lists; as in partial_kendall, could be
+    sped up by more efficient set size calculation.
+    """
+    cardD = 0
+    cardR1 = 0
+    cardR2 = 0
+    for i in range(len(s1)):
+        for j in range(len(s2)):
+            if s1[i] < s1[j] and s2[i] > s2[j]:
+                cardD += 1
+            elif s1[i] == s1[j] and s2[i] != s2[j]:
+                cardR1 += 1
+            elif s2[i] == s2[i] and s1[i] != s1[j]:
+                cardR2 += 1
+    return cardD + max(cardR1,cardR2)
