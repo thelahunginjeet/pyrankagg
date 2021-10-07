@@ -371,7 +371,7 @@ class FullListRankAggregator(RankAggregator):
         # if we are out of the loop, there should only be one item left to
         #   rank
         med_ranks[list(M.keys())[0]] = len(med_ranks)
-        return _,med_ranks
+        return None,med_ranks
 
 
     def highest_rank(self,rank_list):
@@ -390,7 +390,7 @@ class FullListRankAggregator(RankAggregator):
         # over-write the min_ranks dict with the aggregate ranks
         for (item,rank) in pairs:
             min_ranks[item] = rank
-        return _,min_ranks
+        return None,min_ranks
 
 
     def lowest_rank(self,rank_list):
@@ -409,7 +409,7 @@ class FullListRankAggregator(RankAggregator):
         # over-write the max_ranks dict with the aggregate ranks
         for (item,rank) in pairs:
             max_ranks[item] = rank
-        return _,max_ranks
+        return None,max_ranks
 
 
     def stability_selection(self,rank_list,theta=None):
@@ -537,7 +537,7 @@ class FullListRankAggregator(RankAggregator):
             next_list = mod(next_list + 1,len(rank_list))
         # should only be one item left
         rr_ranks[items[0]] = N
-        return _,rr_ranks
+        return None,rr_ranks
 
 
     def footrule_aggregation(self,ranklist):
@@ -579,7 +579,7 @@ class FullListRankAggregator(RankAggregator):
         aggRanks = {}
         for pair in path:
             aggRanks[self.indexToItem[pair[0]]] = p[pair[1]]
-        return _,aggRanks
+        return None,aggRanks
 
 
 
