@@ -30,7 +30,7 @@ def sort_by_value(d,reverse=False):
     """
     One of many ways to sort a dictionary by value.
     """
-    return sorted(d.items(), key = itemgetter(1), reverse=reverse)
+    return [(k,d[k]) for k in sorted(d,key=d.get,reverse=reverse)]
 
 
 class RankAggregator(object):
@@ -300,10 +300,10 @@ class FullListRankAggregator(RankAggregator):
             ranklist = experts
         # now dispatch on the string method
         if method in self.mDispatch:
-            aggRanks = self.mDispatch[method](ranklist)
+            scores,aggRanks = self.mDispatch[method](ranklist)
         else:
             print('ERROR: method \'',method,'\'  invalid.')
-        return aggRanks
+        return scores,aggRanks
 
 
     def borda_aggregation(self,ranklist):
@@ -330,7 +330,7 @@ class FullListRankAggregator(RankAggregator):
             for item in r:
                 aggRanks[item] += maxRank - r[item]
         # now convert the Borda scores to ranks
-        return self.convert_to_ranks(aggRanks)
+        return aggRanks,self.convert_to_ranks(aggRanks)
 
 
     def median_aggregation(self,rank_list):
@@ -371,7 +371,7 @@ class FullListRankAggregator(RankAggregator):
         # if we are out of the loop, there should only be one item left to
         #   rank
         med_ranks[list(M.keys())[0]] = len(med_ranks)
-        return med_ranks
+        return _,med_ranks
 
 
     def highest_rank(self,rank_list):
@@ -390,7 +390,7 @@ class FullListRankAggregator(RankAggregator):
         # over-write the min_ranks dict with the aggregate ranks
         for (item,rank) in pairs:
             min_ranks[item] = rank
-        return min_ranks
+        return _,min_ranks
 
 
     def lowest_rank(self,rank_list):
@@ -409,7 +409,7 @@ class FullListRankAggregator(RankAggregator):
         # over-write the max_ranks dict with the aggregate ranks
         for (item,rank) in pairs:
             max_ranks[item] = rank
-        return max_ranks
+        return _,max_ranks
 
 
     def stability_selection(self,rank_list,theta=None):
@@ -425,7 +425,7 @@ class FullListRankAggregator(RankAggregator):
         item_ranks = self.item_ranks(rank_list)
         for k in scores:
             scores[k] = sum([i <= theta for i in item_ranks[k]])
-        return self.convert_to_ranks(scores)
+        return scores,self.convert_to_ranks(scores)
 
 
     def exponential_weighting(self,rank_list,theta=None):
@@ -440,7 +440,7 @@ class FullListRankAggregator(RankAggregator):
         item_ranks = self.item_ranks(rank_list)
         for k in scores:
             scores[k] = exp([-1.0*x/theta for x in item_ranks[k]]).sum()
-        return self.convert_to_ranks(scores)
+        return scores,self.convert_to_ranks(scores)
 
 
     def stability_enhanced_borda(self,rank_list,theta=None):
@@ -457,7 +457,7 @@ class FullListRankAggregator(RankAggregator):
             borda = sum([N - x for x in item_ranks[k]])
             ss = sum([i <= theta for i in item_ranks[k]])
             scores[k] = borda*ss
-        return self.convert_to_ranks(scores)
+        return scores,self.convert_to_ranks(scores)
 
 
     def exponential_enhanced_borda(self,rank_list,theta=None):
@@ -475,7 +475,7 @@ class FullListRankAggregator(RankAggregator):
             borda = sum([N - x for x in item_ranks[k]])
             expw = exp([-1.0*x/theta for x in item_ranks[k]]).sum()
             scores[k] = borda*expw
-        return self.convert_to_ranks(scores)
+        return scores,self.convert_to_ranks(scores)
 
 
     def robust_aggregation(self,rank_list):
@@ -501,7 +501,7 @@ class FullListRankAggregator(RankAggregator):
             item_ranks[item] = sort([1.0*x/N for x in item_ranks[item]])
             # the 1.0 here is to make *large* scores correspond to better ranks
             scores[item] = 1.0 - min(beta_calc(item_ranks[item]))
-        return self.convert_to_ranks(scores)
+        return scores,self.convert_to_ranks(scores)
 
 
     def round_robin(self,rank_list):
@@ -537,7 +537,7 @@ class FullListRankAggregator(RankAggregator):
             next_list = mod(next_list + 1,len(rank_list))
         # should only be one item left
         rr_ranks[items[0]] = N
-        return rr_ranks
+        return _,rr_ranks
 
 
     def footrule_aggregation(self,ranklist):
@@ -579,7 +579,7 @@ class FullListRankAggregator(RankAggregator):
         aggRanks = {}
         for pair in path:
             aggRanks[self.indexToItem[pair[0]]] = p[pair[1]]
-        return aggRanks
+        return _,aggRanks
 
 
 
